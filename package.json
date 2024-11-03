@@ -1,0 +1,28 @@
+{
+  "name": "bankmanagementsystem",
+  "version": "1.0.0",
+  "description": "Bank Management System APIs",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "Bank Management System APIs"
+  },
+  "keywords": [
+    "banks",
+    "accounts",
+    "funds",
+    "cards",
+    "currency"
+  ],
+  "author": "AKA",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "pg-promise": "^11.10.1"
+  }
+}
