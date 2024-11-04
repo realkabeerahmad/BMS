@@ -82,16 +82,22 @@ class USER extends LOGGER {
           hashedPassword,
         ]);
         this.INFO("User created successfully");
-        res
-          .status(201)
-          .send({ message: "User created successfully", user: result });
+        res.status(201).json({
+          responseCode: "201",
+          description: "User created successfully",
+          user: result,
+        });
       } catch (error) {
         this.ERROR("Error creating user: " + error);
-        res.status(500).send({ error: "Failed to create user" });
+        res
+          .status(500)
+          .json({ responseCode: "500", description: "Failed to create user" });
       }
     } else {
       this.DEBUG(JSON.stringify(req.body.user));
-      res.status(400).json({ error: "User Already exist" });
+      res
+        .status(400)
+        .json({ responseCode: "400", description: "User Already exist" });
     }
   };
 
@@ -104,14 +110,22 @@ class USER extends LOGGER {
       if (user) {
         delete user.password; // Remove password from response for security
         this.INFO("User retrieved successfully");
-        res.status(200).send(user);
+        res.status(200).json({
+          responseCode: "200",
+          description: "User retrieved successfully",
+          user: user,
+        });
       } else {
         this.WARNING("User not found");
-        res.status(404).send({ message: "User not found" });
+        res
+          .status(404)
+          .json({ responseCode: "404", description: "User not found" });
       }
     } catch (error) {
       this.ERROR("Error retrieving user:" + error);
-      res.status(500).send({ error: "Failed to retrieve user" });
+      res
+        .status(500)
+        .json({ responseCode: "500", description: "Failed to retrieve user" });
     }
   };
 
@@ -135,7 +149,9 @@ class USER extends LOGGER {
 
     if (!user_id) {
       this.WARNING("User ID is required");
-      return res.status(400).send({ error: "User ID is required" });
+      return res
+        .status(400)
+        .json({ responseCode: "400", description: "User ID is required" });
     }
 
     try {
@@ -143,7 +159,9 @@ class USER extends LOGGER {
 
       if (!user) {
         this.WARNING("User not found");
-        return res.status(404).send({ error: "User not found" });
+        return res
+          .status(404)
+          .json({ responseCode: "404", description: "User not found" });
       }
 
       this.INFO("Updating user:", JSON.stringify(req.body.user));
@@ -219,14 +237,25 @@ class USER extends LOGGER {
 
       if (result.rowCount > 0) {
         this.INFO("User updated successfully");
-        res.status(200).send({ message: "User updated successfully" });
+        res.status(200).json({
+          responseCode: "200",
+          description: "User updated successfully",
+          user: result.rows,
+        });
       } else {
         this.WARNING("Failed to update user - no changes applied");
-        res.status(304).send({ message: "No changes made to the user" });
+        res
+          .status(304)
+          .json({
+            responseCode: "304",
+            description: "No changes made to the user",
+          });
       }
     } catch (error) {
       this.ERROR("Error updating user: " + error);
-      res.status(500).send({ error: "Failed to update user" });
+      res
+        .status(500)
+        .json({ responseCode: "500", description: "Failed to update user" });
     }
   };
 
