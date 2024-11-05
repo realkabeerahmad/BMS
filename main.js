@@ -64,3 +64,5 @@ const APP = new MAIN(
 );
 APP.APP.use(router);
 APP.LISTEN();
+
+module.exports = { app: APP.APP };
