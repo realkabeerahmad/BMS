@@ -89,6 +89,33 @@ class AUTH extends LOGGER {
     });
   };
 
+  getSessions = async (user_id) => {
+    this.INFO("Retrieve the latest session for the user");
+    const sessions = await this.DB.CONNECTION.query(
+      "SELECT * FROM user_sessions WHERE user_id = $1 ORDER BY session_id DESC LIMIT 1",
+      [user_id]
+    );
+    return sessions;
+  };
+
+  login = async (req, res, next) => {
+    const { user_id, password } = req.body;
+    this.INFO("Going to execute the Login Flow");
+    this.DEBUG(`Data Received in request -> , ${user_id}, ${password}`);
+    const sessions = this.getSessions(user_id);
+    if (
+      sessions.length > 0 &&
+      sessions[0]?.session_time > new Date() &&
+      !sessions[0]?.is_expired
+    ) {
+      this.INFO("User already logged in");
+      return res
+        .status(200)
+        .json({ message: "User already logged in", session: sessions[0] });
+    }
+    try {
+    } catch (error) {}
+  };
   // Saves session details to the USER_SESSIONS table
   async saveSession(userId, token) {
     const sessionTime = new Date();
