@@ -1,6 +1,7 @@
 const bcrypt = require("bcrypt");
 const DATABASE = require("../../DATABASE/v1/DATABASE");
 const LOGGER = require("../../logger/v1/logger");
+const SYSTEM = require("./system");
 
 class USER extends LOGGER {
   static QUERIES = {
@@ -28,6 +29,12 @@ class USER extends LOGGER {
     ).join("");
   };
 
+  removePassword = (user) => {
+    this.INFO("Removing any secure details");
+    delete user.password;
+    return user;
+  };
+
   createUserHistory = async (action, user_id) =>
     this.DB.oneOrNone(USER.QUERIES.USER_AUDIT, [action, user_id]);
 
@@ -35,7 +42,7 @@ class USER extends LOGGER {
     const ErrorResponse = DATABASE.handleDatabaseError(error);
     this.ERROR("Error creating user: " + JSON.stringify(ErrorResponse));
     this.DEBUG(JSON.stringify(error));
-    res.status(ErrorResponse.responseCode).json(ErrorResponse);
+    res.status(ErrorResponse.serverResponseCode).json(ErrorResponse);
   };
 
   createUser = async (req, res) => {
@@ -55,9 +62,15 @@ class USER extends LOGGER {
       is_allowed,
     } = req.body.user;
     try {
-      const hashedPassword = await this.hashPassword(
-        this.generateOneTimePassword()
+      let password = this.generateOneTimePassword();
+      this.INFO(
+        "Password Hashing Required " +
+          SYSTEM.PasswordHashingRequired +
+          " on System Level"
       );
+      if (SYSTEM.PasswordHashingRequired) {
+        password = await this.hashPassword(password);
+      }
       const result = await this.DB.oneOrNone(USER.QUERIES.CREATE, [
         user_id,
         first_name,
@@ -72,14 +85,14 @@ class USER extends LOGGER {
         city_name,
         role_id,
         is_allowed || "Y",
-        hashedPassword,
+        password,
       ]);
       this.DEBUG(JSON.stringify(result));
       this.INFO("User created successfully");
       res.status(201).json({
-        responseCode: "201",
-        description: "User created successfully",
-        user: result,
+        serverResponseCode: "201",
+        responseDescription: "User created successfully",
+        user: SYSTEM.SendPasswordInResp ? result : this.removePassword(result),
       });
     } catch (error) {
       this.sendErrorResp(res, error);
@@ -92,8 +105,8 @@ class USER extends LOGGER {
 
       if (!user_id) {
         return res.status(400).json({
-          responseCode: "400",
-          description: "User ID is required",
+          serverResponseCode: "400",
+          responseDescription: "User ID is required",
         });
       }
 
@@ -104,23 +117,17 @@ class USER extends LOGGER {
 
       if (!user) {
         return res.status(404).json({
-          responseCode: "404",
-          description: "User not found",
+          serverResponseCode: "404",
+          responseDescription: "User not found",
         });
       }
-
-      this.INFO("Removing any secure details");
-
-      // Remove sensitive data like password
-      delete user.password;
-
       this.INFO("User retrieved successfully");
 
       // Send successful response
       res.status(200).json({
-        responseCode: "200",
-        description: "User retrieved successfully",
-        user,
+        serverResponseCode: "200",
+        responseDescription: "User retrieved successfully",
+        user: SYSTEM.SendPasswordInResp ? user : this.removePassword(user),
       });
     } catch (error) {
       // Handle any unexpected errors
@@ -131,21 +138,16 @@ class USER extends LOGGER {
   updateUser = async (req, res) => {
     const { user_id, ...fields } = req.body.user;
 
+    // Check if user_id is provided
     if (!user_id) {
       this.WARNING("User ID is required");
-      return res
-        .status(400)
-        .json({ responseCode: "400", description: "User ID is required" });
+      return res.status(400).json({
+        serverResponseCode: 400,
+        responseDescription: "User ID is required",
+      });
     }
 
-    const user = await this.getUserFromDB(user_id, USER.QUERIES.READ);
-    if (!user) {
-      this.WARNING("User not found");
-      return res
-        .status(404)
-        .json({ responseCode: "404", description: "User not found" });
-    }
-
+    // Collect fields to update
     const fieldsToUpdate = [];
     const values = Object.entries(fields).reduce((acc, [key, value]) => {
       if (value !== undefined) {
@@ -154,62 +156,73 @@ class USER extends LOGGER {
       }
       return acc;
     }, []);
+
+    // Add user_id to values
     values.push(user_id);
 
-    if (fieldsToUpdate.length === 0)
-      return res.status(400).json({ error: "No fields provided for update" });
+    // Check if there are fields to update
+    if (fieldsToUpdate.length === 0) {
+      return res.status(400).json({
+        serverResponseCode: 400,
+        responseDescription: "No fields provided for update",
+      });
+    }
 
-    const query = `UPDATE users SET ${fieldsToUpdate.join(
+    // Construct the query
+    const QUERY = `UPDATE users SET ${fieldsToUpdate.join(
       ", "
     )} WHERE user_id = $${values.length} RETURNING *`;
+
     try {
-      await this.createUserHistory("U", user_id);
-      const result = await this.DB.result(query, values);
-      res.status(result.rowCount > 0 ? 200 : 304).json({
-        responseCode: result.rowCount > 0 ? "200" : "304",
-        description:
-          result.rowCount > 0
-            ? "User updated successfully"
-            : "No changes made to the user",
-        user: result.rows,
+      // Optional: Create user history if required
+      if (SYSTEM.CreateUserHistory) {
+        await this.createUserHistory("U", user_id);
+      }
+
+      // Execute the query
+      const result = await this.DB.oneOrNone(QUERY, values);
+
+      // Check for a result and respond
+      if (!result) {
+        return res.status(404).json({
+          serverResponseCode: 404,
+          responseDescription: "User not found",
+        });
+      }
+
+      res.status(200).json({
+        serverResponseCode: 200,
+        responseDescription: "User updated successfully",
+        user: SYSTEM.SendPasswordInResp ? result : this.removePassword(result),
       });
     } catch (error) {
-      this.ERROR("Error updating user: " + error);
-      res
-        .status(500)
-        .json({ responseCode: "500", description: "Failed to update user" });
+      // Handle errors
+      this.sendErrorResp(res, error);
     }
   };
 
   updatePassword = async (req, res) => {
     const { user_id, newPassword } = req.body;
-    if (await this.getUserFromDB(user_id, USER.QUERIES.READ_USER_ID)) {
-      try {
-        const hashedPassword = await this.hashPassword(newPassword);
-        await this.createUserHistory("U", user_id);
-        const result = await this.DB.result(USER.QUERIES.UPDATE_PASSWORD, [
-          hashedPassword,
-          user_id,
-        ]);
-        res.status(result.rowCount > 0 ? 200 : 404).json({
-          responseCode: result.rowCount > 0 ? "200" : "404",
-          description:
-            result.rowCount > 0
-              ? "Password updated successfully"
-              : "User not found",
-        });
-      } catch (error) {
-        this.ERROR("Error updating password: " + error);
-        res.status(500).json({
-          responseCode: "500",
-          description: "Failed to update password",
-        });
-      }
-    } else {
-      this.WARNING("User not found");
-      res
-        .status(404)
-        .json({ responseCode: "404", description: "User not found" });
+    try {
+      const hashedPassword = await this.hashPassword(newPassword);
+      await this.createUserHistory("U", user_id);
+      const result = await this.DB.result(USER.QUERIES.UPDATE_PASSWORD, [
+        hashedPassword,
+        user_id,
+      ]);
+      res.status(result.rowCount > 0 ? 200 : 404).json({
+        serverResponseCode: result.rowCount > 0 ? "200" : "404",
+        responseDescription:
+          result.rowCount > 0
+            ? "Password updated successfully"
+            : "User not found",
+      });
+    } catch (error) {
+      this.ERROR("Error updating password: " + error);
+      res.status(500).json({
+        serverResponseCode: "500",
+        responseDescription: "Failed to update password",
+      });
     }
   };
 
@@ -219,15 +232,16 @@ class USER extends LOGGER {
       await this.createUserHistory("D", user_id);
       const result = await this.DB.result(USER.QUERIES.DELETE, [user_id]);
       res.status(result.rowCount > 0 ? 200 : 404).json({
-        responseCode: result.rowCount > 0 ? "200" : "404",
-        description:
+        serverResponseCode: result.rowCount > 0 ? "200" : "404",
+        responseDescription:
           result.rowCount > 0 ? "User deleted successfully" : "User not found",
       });
     } catch (error) {
       this.ERROR("Error deleting user: " + error);
-      res
-        .status(500)
-        .json({ responseCode: "500", description: "Failed to delete user" });
+      res.status(500).json({
+        serverResponseCode: "500",
+        responseDescription: "Failed to delete user",
+      });
     }
   };
 }

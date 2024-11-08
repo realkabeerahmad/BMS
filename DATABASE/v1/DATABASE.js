@@ -28,40 +28,41 @@ class DATABASE extends LOGGER {
     switch (error.code) {
       case "23505": // PostgreSQL unique constraint violation (duplicate key)
         return {
-          responseCode: 400,
-          description: "User already exists with the provided ID or email",
+          serverResponseCode: 400,
+          responseDescription: "already exists with the provided ID or email",
         };
 
       case "23503": // Foreign key violation (referential integrity)
         return {
-          responseCode: 400,
-          description: "Referenced foreign key does not exist",
+          serverResponseCode: 400,
+          responseDescription: "Referenced foreign key does not exist",
         };
 
       case "23514": // Check constraint violation (e.g., invalid data format)
         return {
-          responseCode: 400,
-          description:
+          serverResponseCode: 400,
+          responseDescription:
             "Invalid data provided according to database constraints",
         };
 
       case "42P01": // Undefined table error (e.g., table does not exist)
         return {
-          responseCode: 500,
-          description: "Internal Server Error: Database table not found",
+          serverResponseCode: 500,
+          responseDescription:
+            "Internal Server Error: Database table not found",
         };
 
       case "08003": // Connection does not exist (usually for PostgreSQL)
         return {
-          responseCode: 500,
-          description: "Database connection error",
+          serverResponseCode: 500,
+          responseDescription: "Database connection error",
         };
 
       default:
         // Default error response for unhandled error codes
         return {
-          responseCode: 500,
-          description: "Internal Server Error: Something went wrong",
+          serverResponseCode: 500,
+          responseDescription: "Internal Server Error: Something went wrong",
         };
     }
   }
