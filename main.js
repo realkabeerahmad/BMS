@@ -4,6 +4,7 @@ const dotenv = require("dotenv");
 const LOGGER = require("./logger/v1/logger");
 const { router } = require("./routes/v1/index");
 const DATABASE = require("./DATABASE/v1/DATABASE");
+const SYSTEM = require("./controller/v1/system");
 
 dotenv.config();
 
@@ -11,6 +12,7 @@ class MAIN extends LOGGER {
   constructor(PORT, LOG_FILE_NAME, LOG_LEVEL) {
     super(LOG_FILE_NAME, LOG_LEVEL);
     this.PORT = PORT;
+    this.SYS = new SYSTEM();
     this.APP = express();
     this.APP.use(express.json());
     this.APP.use(express.urlencoded({ extended: true }));

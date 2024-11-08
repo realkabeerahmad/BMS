@@ -16,7 +16,7 @@ class USER extends LOGGER {
 
   constructor(LOG_FILE_NAME = "/Controllers/userController.log") {
     super(LOG_FILE_NAME);
-    this.DB = new DATABASE(LOG_FILE_NAME).CONNECTION;
+    this.DB = DATABASE.CONNECTION;
   }
 
   hashPassword = async (password) => bcrypt.hash(password, 10);
