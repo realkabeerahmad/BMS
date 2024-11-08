@@ -3,7 +3,7 @@ const DATABASE = require("../../DATABASE/v1/DATABASE");
 const LOGGER = require("../../logger/v1/logger");
 const SYSTEM = require("./system");
 
-class USER extends LOGGER {
+class UserController extends LOGGER {
   static QUERIES = {
     CREATE: `INSERT INTO users (user_id, first_name, middle_name, last_name, email, phone, gender, dob, country_code, state_code, city_name, role_id, is_allowed, password) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
     READ: `SELECT * FROM users WHERE user_id = $1`,
@@ -14,7 +14,7 @@ class USER extends LOGGER {
     USER_AUDIT: `INSERT INTO userh (user_id, first_name, middle_name, last_name, email, phone, gender, dob, country_code, state_code, city_name, role_id, is_allowed, password, actions) SELECT user_id, first_name, middle_name, last_name, email, phone, gender, dob, country_code, state_code, city_name, role_id, is_allowed, password, $1 FROM users WHERE user_id = $2 RETURNING *`,
   };
 
-  constructor(LOG_FILE_NAME = "/Controllers/userController.log") {
+  constructor(LOG_FILE_NAME = "/Controllers/UserController.log") {
     super(LOG_FILE_NAME);
     this.DB = DATABASE.CONNECTION;
   }
@@ -36,11 +36,11 @@ class USER extends LOGGER {
   };
 
   createUserHistory = async (action, user_id) =>
-    this.DB.oneOrNone(USER.QUERIES.USER_AUDIT, [action, user_id]);
+    this.DB.oneOrNone(UserController.QUERIES.USER_AUDIT, [action, user_id]);
 
   sendErrorResp = (res, error) => {
     const ErrorResponse = DATABASE.handleDatabaseError(error);
-    this.ERROR("Error creating user: " + JSON.stringify(ErrorResponse));
+    this.ERROR("Error: " + error);
     this.DEBUG(JSON.stringify(error));
     res.status(ErrorResponse.serverResponseCode).json(ErrorResponse);
   };
@@ -71,7 +71,7 @@ class USER extends LOGGER {
       if (SYSTEM.PasswordHashingRequired) {
         password = await this.hashPassword(password);
       }
-      const result = await this.DB.oneOrNone(USER.QUERIES.CREATE, [
+      const result = await this.DB.oneOrNone(UserController.QUERIES.CREATE, [
         user_id,
         first_name,
         middle_name,
@@ -113,7 +113,9 @@ class USER extends LOGGER {
       this.INFO("Going to retrieve user");
 
       // Fetch user from the database
-      const user = await this.DB.oneOrNone(USER.QUERIES.READ, [user_id]);
+      const user = await this.DB.oneOrNone(UserController.QUERIES.READ, [
+        user_id,
+      ]);
 
       if (!user) {
         return res.status(404).json({
@@ -203,13 +205,40 @@ class USER extends LOGGER {
 
   updatePassword = async (req, res) => {
     const { user_id, newPassword } = req.body;
+
+    // Check for required fields
+    if (!user_id || !newPassword) {
+      this.WARNING("User ID and new password are required");
+      return res.status(400).json({
+        serverResponseCode: 400,
+        responseDescription: "User ID and new password are required",
+      });
+    }
+
     try {
-      const hashedPassword = await this.hashPassword(newPassword);
-      await this.createUserHistory("U", user_id);
-      const result = await this.DB.result(USER.QUERIES.UPDATE_PASSWORD, [
-        hashedPassword,
-        user_id,
-      ]);
+      this.INFO(
+        `Password Hashing Required: ${SYSTEM.PasswordHashingRequired} on System Level`
+      );
+
+      let password = newPassword;
+
+      // Hash the password if required by the system configuration
+      if (SYSTEM.PasswordHashingRequired) {
+        password = await this.hashPassword(password);
+      }
+
+      // Optionally, create user history if the setting is enabled
+      if (SYSTEM.CreateUserHistory) {
+        await this.createUserHistory("U", user_id);
+      }
+
+      // Execute the password update query
+      const result = await this.DB.result(
+        UserController.QUERIES.UPDATE_PASSWORD,
+        [password, user_id]
+      );
+
+      // Send response based on the result of the update operation
       res.status(result.rowCount > 0 ? 200 : 404).json({
         serverResponseCode: result.rowCount > 0 ? "200" : "404",
         responseDescription:
@@ -218,32 +247,30 @@ class USER extends LOGGER {
             : "User not found",
       });
     } catch (error) {
-      this.ERROR("Error updating password: " + error);
-      res.status(500).json({
-        serverResponseCode: "500",
-        responseDescription: "Failed to update password",
-      });
+      // Send error response if an exception occurs
+      this.sendErrorResp(res, error);
     }
   };
 
   deleteUser = async (req, res) => {
     const { user_id } = req.params;
     try {
-      await this.createUserHistory("D", user_id);
-      const result = await this.DB.result(USER.QUERIES.DELETE, [user_id]);
+      if (SYSTEM.CreateUserHistory) {
+        await this.createUserHistory("U", user_id);
+      }
+      const result = await this.DB.result(UserController.QUERIES.DELETE, [
+        user_id,
+      ]);
       res.status(result.rowCount > 0 ? 200 : 404).json({
         serverResponseCode: result.rowCount > 0 ? "200" : "404",
         responseDescription:
           result.rowCount > 0 ? "User deleted successfully" : "User not found",
       });
     } catch (error) {
-      this.ERROR("Error deleting user: " + error);
-      res.status(500).json({
-        serverResponseCode: "500",
-        responseDescription: "Failed to delete user",
-      });
+      // Send error response if an exception occurs
+      this.sendErrorResp(res, error);
     }
   };
 }
 
-module.exports = USER;
+module.exports = UserController;

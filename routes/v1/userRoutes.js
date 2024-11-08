@@ -1,8 +1,8 @@
-const USER = require("../../controller/v1/user");
+const UserController = require("../../controller/v1/user");
 const ROUTER = require("./ROUTER");
 
 const userRouter = new ROUTER();
-const user = new USER();
+const user = new UserController();
 
 // Use proper HTTP methods for the respective routes
 userRouter.router.post("/create", user.createUser); // Create user
