@@ -6,8 +6,10 @@ class SYSTEM extends LOGGER {
   static PasswordHashingRequired = false;
   static SendPasswordInResp = false;
   static CreateUserHistory = false;
+  static AutoCachRefreshRequired = true;
+  static AutoCachRefreshInterval = 600000;
+  // Add More variables here when required in system cache
 
-  // Internal property to manage cache refresh
   static lastUpdated = null;
 
   constructor() {
@@ -18,7 +20,8 @@ class SYSTEM extends LOGGER {
     // Load initial values from DB
     SYSTEM.refreshCache();
     // Set up automatic refresh every 10 minutes
-    setInterval(() => SYSTEM.refreshCache(), 0.0001 * 60 * 1000);
+    if (SYSTEM.AutoCachRefreshRequired)
+      setInterval(() => SYSTEM.refreshCache(), SYSTEM.AutoCachRefreshInterval);
   }
 
   // Method to refresh the cache from the database
@@ -35,12 +38,16 @@ class SYSTEM extends LOGGER {
         WHERE PARAM_ID IN (
           'PasswordHashingRequired', 
           'SendPasswordInResp', 
-          'CreateUserHistory'
+          'CreateUserHistory',
+          'AutoCachRefreshRequired',
+          'AutoCachRefreshInterval'
         )
       `);
 
       // Logging the fetched parameters
-      logger.DEBUG("Fetched parameters from the database:" + params);
+      logger.DEBUG(
+        "Fetched parameters from the database:" + JSON.stringify(params)
+      );
 
       // Update class variables based on query result
       params.forEach(({ param_id, param_value }) => {
@@ -61,8 +68,20 @@ class SYSTEM extends LOGGER {
             SYSTEM.CreateUserHistory = param_value === "Y";
             logger.INFO("CreateUserHistory set to:" + SYSTEM.CreateUserHistory);
             break;
+          case "AutoCachRefreshRequired":
+            SYSTEM.AutoCachRefreshRequired = param_value === "Y";
+            logger.INFO(
+              "AutoCachRefreshRequired set to:" + SYSTEM.AutoCachRefreshRequired
+            );
+            break;
+          case "AutoCachRefreshInterval":
+            SYSTEM.AutoCachRefreshInterval = Number(param_value);
+            logger.INFO(
+              "AutoCachRefreshInterval set to:" + SYSTEM.AutoCachRefreshInterval
+            );
+            break;
           default:
-            logger.WARN("Unexpected PARAM_ID:" + param_id);
+            logger.WARNING("Unexpected PARAM_ID:" + param_id);
             break;
         }
       });
