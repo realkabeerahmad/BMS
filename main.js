@@ -1,7 +1,7 @@
 const express = require("express");
 const path = require("path");
 const dotenv = require("dotenv");
-const LOGGER = require("./src/utils/LOGGER/v1/logger");
+const LOGGER = require("./src/utils/LOGGER/v1/LOGGER");
 const { router } = require("./src/routes/v1/index");
 const DATABASE = require("./src/utils/DATABASE/v1/DATABASE");
 const SYSTEM = require("./src/controller/v1/system");
