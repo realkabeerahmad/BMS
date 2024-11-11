@@ -1,10 +1,10 @@
 const express = require("express");
 const path = require("path");
 const dotenv = require("dotenv");
-const LOGGER = require("./logger/v1/logger");
-const { router } = require("./routes/v1/index");
-const DATABASE = require("./DATABASE/v1/DATABASE");
-const SYSTEM = require("./controller/v1/system");
+const LOGGER = require("./src/utils/LOGGER/v1/logger");
+const { router } = require("./src/routes/v1/index");
+const DATABASE = require("./src/utils/DATABASE/v1/DATABASE");
+const SYSTEM = require("./src/controller/v1/system");
 
 dotenv.config();
 

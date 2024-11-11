@@ -1,4 +1,4 @@
-const LOGGER = require("../../logger/v1/logger");
+const LOGGER = require("../../LOGGER/v1/logger");
 const dotenv = require("dotenv");
 const pgp = require("pg-promise")();
 

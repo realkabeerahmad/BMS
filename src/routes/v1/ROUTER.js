@@ -1,5 +1,5 @@
 const express = require("express");
-const LOGGER = require("../../logger/v1/logger");
+const LOGGER = require("../../utils/LOGGER/v1/logger");
 
 class ROUTER extends LOGGER {
   constructor() {

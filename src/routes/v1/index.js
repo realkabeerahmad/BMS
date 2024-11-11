@@ -1,4 +1,4 @@
-const SYSTEM = require("../../controller/v1/system");
+const SYSTEM = require("../../src/controller/v1/system");
 const ROUTER = require("./ROUTER");
 const { userRouter } = require("./userRoutes");
 
