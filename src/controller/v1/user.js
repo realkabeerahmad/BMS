@@ -1,6 +1,6 @@
 const bcrypt = require("bcrypt");
 const DATABASE = require("../../utils/DATABASE/v1/DATABASE");
-const LOGGER = require("../../utils/LOGGER/v1/logger");
+const LOGGER = require("../../utils/LOGGER/v1/LOGGER");
 const SYSTEM = require("./system");
 
 class UserController extends LOGGER {
