@@ -1,5 +1,5 @@
 const DATABASE = require("../../utils/DATABASE/v1/DATABASE");
-const LOGGER = require("../../utils/LOGGER/v1/logger");
+const LOGGER = require("../../utils/LOGGER/v1/LOGGER");
 
 class SYSTEM extends LOGGER {
   // Cache variables
