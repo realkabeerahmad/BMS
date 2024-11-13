@@ -12,7 +12,9 @@ class DATABASE extends LOGGER {
     port: process.env.PG_POR,
     database: process.env.PG_DATABASE,
   });
-
+  static BEGIN = async () => await DATABASE.CONNECTION.query("BEGIN;");
+  static COMMIT = async () => await DATABASE.CONNECTION.query("COMMIT;");
+  static ROLLBACK = async () => await DATABASE.CONNECTION.query("ROLLBACK;");
   static handleDatabaseError(error) {
     switch (error.code) {
       case "23505": // PostgreSQL unique constraint violation (duplicate key)
