@@ -4,6 +4,7 @@ class LOGGER {
   static LEVEL = {
     INFO: "INFO",
     DEBUG: "DEBUG",
+    WARNING: "WARN",
     ERROR: "ERROR",
     EXCEPTION: "EXCEPTION",
   };
@@ -19,7 +20,7 @@ class LOGGER {
     this.BACKUP_FILE_PATH = BACKUP_FILE_PATH;
     this.LOGS_PATH = this.FILE_PATH + this.FILE_NAME;
     this.OUTPUT = fs.createWriteStream(this.LOGS_PATH, {
-      flags: this.LOG_MOD == "INFO" ? "w" : "a",
+      flags: this.LOG_MOD == LOGGER.LEVEL.INFO ? "w" : "a",
     });
     this.CONSOLER = new console.Console(this.OUTPUT, this.OUTPUT);
   }
@@ -49,19 +50,20 @@ class LOGGER {
   }
 
   INFO(MESSAGE) {
-    this.LOG(`[INFO] - ${MESSAGE}`);
+    this.LOG(`[${LOGGER.LEVEL.INFO}] - ${MESSAGE}`);
   }
   EXCEPTION(MESSAGE) {
-    this.LOG(`[EXCEPTION] - ${MESSAGE}`);
+    this.LOG(`[${LOGGER.LEVEL.EXCEPTION}] - ${MESSAGE}`);
   }
   ERROR(MESSAGE) {
-    this.LOG(`[ERROR] - ${MESSAGE}`);
+    this.LOG(`[${LOGGER.LEVEL.ERROR}] - ${MESSAGE}`);
   }
   WARNING(MESSAGE) {
-    this.LOG(`[WARNING] - ${MESSAGE}`);
+    this.LOG(`[${LOGGER.LEVEL.WARNING}] - ${MESSAGE}`);
   }
   DEBUG(MESSAGE) {
-    if (this.LOG_MOD === "DEBUG") this.LOG(`[DEBUG] - ${MESSAGE}`);
+    if (this.LOG_MOD === LOGGER.LEVEL.DEBUG)
+      this.LOG(`[${LOGGER.LEVEL.DEBUG}] - ${MESSAGE}`);
   }
 }
 
