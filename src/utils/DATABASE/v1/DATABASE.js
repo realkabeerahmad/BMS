@@ -9,7 +9,7 @@ class DATABASE extends LOGGER {
     user: process.env.PG_USER,
     password: process.env.PG_PASSWORD,
     host: process.env.PG_HOST,
-    port: process.env.PG_POR,
+    port: process.env.PG_PORT,
     database: process.env.PG_DATABASE,
   });
   static BEGIN = async () => await DATABASE.CONNECTION.query("BEGIN;");

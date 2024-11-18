@@ -45,7 +45,7 @@ class UserController extends LOGGER {
     res.status(ErrorResponse.serverResponseCode).json(ErrorResponse);
   };
 
-  createUser = async (req, res) => {
+  createUser = async (user) => {
     const {
       user_id,
       first_name,
@@ -60,35 +60,49 @@ class UserController extends LOGGER {
       city_name,
       role_id,
       is_allowed,
-    } = req.body.user;
+    } = user;
+    let password = this.generateOneTimePassword();
+    this.INFO(
+      "Password Hashing Required " +
+        SYSTEM.PasswordHashingRequired +
+        " on System Level"
+    );
+    if (SYSTEM.PasswordHashingRequired) {
+      password = await this.hashPassword(password);
+    }
+    DATABASE.BEGIN().finally(this.INFO("Transaction Started"));
+    const result = await this.DB.oneOrNone(UserController.QUERIES.CREATE, [
+      user_id,
+      first_name,
+      middle_name,
+      last_name,
+      email,
+      phone,
+      gender,
+      dob,
+      country_code,
+      state_code,
+      city_name,
+      role_id,
+      is_allowed || "Y",
+      password,
+    ])
+      .then((user) => {
+        this.DEBUG(JSON.stringify(result));
+        this.INFO("User created successfully");
+        DATABASE.COMMIT().finally(this.INFO("Transaction Commited"));
+        return user;
+      })
+      .catch((error) => {
+        DATABASE.ROLLBACK().finally(this.INFO("Transaction RollBack"));
+        throw new Error(error);
+      });
+    return result;
+  };
+
+  createUserApi = async (req, res) => {
     try {
-      let password = this.generateOneTimePassword();
-      this.INFO(
-        "Password Hashing Required " +
-          SYSTEM.PasswordHashingRequired +
-          " on System Level"
-      );
-      if (SYSTEM.PasswordHashingRequired) {
-        password = await this.hashPassword(password);
-      }
-      const result = await this.DB.oneOrNone(UserController.QUERIES.CREATE, [
-        user_id,
-        first_name,
-        middle_name,
-        last_name,
-        email,
-        phone,
-        gender,
-        dob,
-        country_code,
-        state_code,
-        city_name,
-        role_id,
-        is_allowed || "Y",
-        password,
-      ]);
-      this.DEBUG(JSON.stringify(result));
-      this.INFO("User created successfully");
+      const result = await this.createUser(req.body.user);
       res.status(201).json({
         serverResponseCode: "201",
         responseDescription: "User created successfully",

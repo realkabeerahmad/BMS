@@ -9,7 +9,7 @@ class LOGGER {
     EXCEPTION: "EXCEPTION",
   };
   constructor(
-    FILE_NAME = "main.log",
+    FILE_NAME = "root.log",
     LOG_MOD = LOGGER.LEVEL.DEBUG,
     FILE_PATH = "./logs/",
     BACKUP_FILE_PATH = "./logs/backup/"
@@ -38,10 +38,17 @@ class LOGGER {
 
   getCallerInfo() {
     const stack = new Error().stack.split("\n");
-    const callerStackLine = stack[3]; // Line 3 will have the caller function info
 
-    // Extract method name (this might vary based on the environment)
-    const methodMatch = callerStackLine.match(/at\s(\S+)\s/);
+    // The stack trace has the following structure:
+    // at <method name> (<file>:<line>:<column>)
+    // at <caller method> (<file>:<line>:<column>)
+
+    // Stack line 3 will contain the method where this method was called (direct caller)
+    const callerStackLine = stack[3] || stack[2]; // Ensure we capture the correct line in all cases
+    // console.log(callerStackLine);
+
+    // Extract method name and location
+    const methodMatch = callerStackLine.match(/at\s(.+?)\s\(/);
     const method = methodMatch ? methodMatch[1] : "Unknown method";
 
     return {

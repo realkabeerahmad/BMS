@@ -5,7 +5,7 @@ const userRouter = new ROUTER();
 const user = new UserController();
 
 // Use proper HTTP methods for the respective routes
-userRouter.router.post("/create", user.createUser); // Create user
+userRouter.router.post("/create", user.createUserApi); // Create user
 userRouter.router.get("/read/:user_id", user.getUser); // Get user by ID, should use a parameter
 userRouter.router.put("/update", user.updateUser); // Use PUT for updating user
 userRouter.router.delete("/delete/:user_id", user.deleteUser); // Delete user by ID, should use a parameter
