@@ -57,20 +57,20 @@ class LOGGER {
   }
 
   INFO(MESSAGE) {
-    this.LOG(`[${LOGGER.LEVEL.INFO}] - ${MESSAGE}`);
+    this.LOG(`[✅] - [${LOGGER.LEVEL.INFO}] - ${MESSAGE}`);
   }
   EXCEPTION(MESSAGE) {
-    this.LOG(`[${LOGGER.LEVEL.EXCEPTION}] - ${MESSAGE}`);
+    this.LOG(`[❌] - [${LOGGER.LEVEL.EXCEPTION}] - ${MESSAGE}`);
   }
   ERROR(MESSAGE) {
-    this.LOG(`[${LOGGER.LEVEL.ERROR}] - ${MESSAGE}`);
+    this.LOG(`[❌] - [${LOGGER.LEVEL.ERROR}] - ${MESSAGE}`);
   }
   WARNING(MESSAGE) {
-    this.LOG(`[${LOGGER.LEVEL.WARNING}] - ${MESSAGE}`);
+    this.LOG(`[⚠️] - [${LOGGER.LEVEL.WARNING}] - ${MESSAGE}`);
   }
   DEBUG(MESSAGE) {
     if (this.LOG_MOD === LOGGER.LEVEL.DEBUG)
-      this.LOG(`[${LOGGER.LEVEL.DEBUG}] - ${MESSAGE}`);
+      this.LOG(`[☕] - [${LOGGER.LEVEL.DEBUG}] - ${MESSAGE}`);
   }
 }
 
