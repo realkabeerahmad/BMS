@@ -1,5 +1,5 @@
 const UserController = require("../../controller/v1/user");
-const ROUTER = require("./ROUTER");
+const ROUTER = require("../../config/ROUTER/v1/ROUTER");
 
 const userRouter = new ROUTER();
 const user = new UserController();

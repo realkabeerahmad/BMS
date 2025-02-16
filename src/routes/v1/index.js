@@ -1,5 +1,5 @@
 const SYSTEM = require("../../controller/v1/system");
-const ROUTER = require("./ROUTER");
+const ROUTER = require("../../config/ROUTER/v1/ROUTER");
 const { userRouter } = require("./userRoutes");
 
 const router = new ROUTER();
