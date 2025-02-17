@@ -7,27 +7,51 @@ class SYSTEM extends LOGGER {
   static SendPasswordInResp = false;
   static CreateUserHistory = false;
   static AutoCachRefreshRequired = true;
-  static AutoCachRefreshInterval = 600000;
-  // Add More variables here when required in system cache
-
+  static AutoCachRefreshInterval = 600000; // 10 minutes in milliseconds
+  static JWT_AUTHENTICATION = false;
   static lastUpdated = null;
 
   constructor() {
     super();
-    this.INFO(
-      "Initializing SYSTEM class and loading cache for the first time."
-    );
-    // Load initial values from DB
-    SYSTEM.refreshCache();
-    // Set up automatic refresh every 10 minutes
-    if (SYSTEM.AutoCachRefreshRequired)
-      setInterval(() => SYSTEM.refreshCache(), SYSTEM.AutoCachRefreshInterval);
+    this.INFO("Initializing SYSTEM class and loading cache for the first time.");
+    this.initializeCache();
   }
 
-  // Method to refresh the cache from the database
+  /**
+   * Initialize the cache by loading values from the database and setting up automatic refresh.
+   */
+  initializeCache() {
+    // Load initial values from DB
+    SYSTEM.refreshCache()
+      .then(() => {
+        this.INFO("Cache initialized successfully.");
+      })
+      .catch((error) => {
+        this.ERROR(`Failed to initialize cache: ${error.message}`);
+      });
+
+    // Set up automatic refresh if enabled
+    if (SYSTEM.AutoCachRefreshRequired) {
+      setInterval(() => {
+        SYSTEM.refreshCache()
+          .then(() => {
+            this.INFO("Cache automatically refreshed.");
+          })
+          .catch((error) => {
+            this.ERROR(`Failed to refresh cache automatically: ${error.message}`);
+          });
+      }, SYSTEM.AutoCachRefreshInterval);
+    }
+  }
+
+  /**
+   * Refresh the cache from the database.
+   * @returns {Promise<void>}
+   */
   static async refreshCache() {
     const logger = new LOGGER();
     logger.INFO("Starting cache refresh from the database...");
+
     try {
       const DB = DATABASE.CONNECTION;
 
@@ -40,65 +64,64 @@ class SYSTEM extends LOGGER {
           'SendPasswordInResp', 
           'CreateUserHistory',
           'AutoCachRefreshRequired',
-          'AutoCachRefreshInterval'
+          'AutoCachRefreshInterval',
+          'JWT_AUTHENTICATION'
         )
       `);
 
       // Logging the fetched parameters
-      logger.DEBUG(
-        "Fetched parameters from the database:" + JSON.stringify(params)
-      );
+      logger.DEBUG("Fetched parameters from the database:" + JSON.stringify(params));
 
       // Update class variables based on query result
       params.forEach(({ param_id, param_value }) => {
         switch (param_id) {
           case "PasswordHashingRequired":
             SYSTEM.PasswordHashingRequired = param_value === "Y";
-            logger.INFO(
-              "PasswordHashingRequired set to:" + SYSTEM.PasswordHashingRequired
-            );
+            logger.INFO(`PasswordHashingRequired set to: ${SYSTEM.PasswordHashingRequired}`);
             break;
           case "SendPasswordInResp":
             SYSTEM.SendPasswordInResp = param_value === "Y";
-            logger.INFO(
-              "SendPasswordInResp set to:" + SYSTEM.SendPasswordInResp
-            );
+            logger.INFO(`SendPasswordInResp set to: ${SYSTEM.SendPasswordInResp}`);
             break;
           case "CreateUserHistory":
             SYSTEM.CreateUserHistory = param_value === "Y";
-            logger.INFO("CreateUserHistory set to:" + SYSTEM.CreateUserHistory);
+            logger.INFO(`CreateUserHistory set to: ${SYSTEM.CreateUserHistory}`);
             break;
           case "AutoCachRefreshRequired":
             SYSTEM.AutoCachRefreshRequired = param_value === "Y";
-            logger.INFO(
-              "AutoCachRefreshRequired set to:" + SYSTEM.AutoCachRefreshRequired
-            );
+            logger.INFO(`AutoCachRefreshRequired set to: ${SYSTEM.AutoCachRefreshRequired}`);
             break;
           case "AutoCachRefreshInterval":
             SYSTEM.AutoCachRefreshInterval = Number(param_value);
-            logger.INFO(
-              "AutoCachRefreshInterval set to:" + SYSTEM.AutoCachRefreshInterval
-            );
+            logger.INFO(`AutoCachRefreshInterval set to: ${SYSTEM.AutoCachRefreshInterval}`);
+            break;
+          case "JWT_AUTHENTICATION":
+            SYSTEM.JWT_AUTHENTICATION = param_value === "Y";
+            logger.INFO(`JWT_AUTHENTICATION set to: ${SYSTEM.JWT_AUTHENTICATION}`);
             break;
           default:
-            logger.WARNING("Unexpected PARAM_ID:" + param_id);
+            logger.WARNING(`Unexpected PARAM_ID: ${param_id}`);
             break;
         }
       });
 
       SYSTEM.lastUpdated = new Date();
-      logger.INFO(
-        "SYSTEM cache successfully refreshed at:" + SYSTEM.lastUpdated
-      );
+      logger.INFO(`SYSTEM cache successfully refreshed at: ${SYSTEM.lastUpdated}`);
     } catch (error) {
-      logger.ERROR("Failed to refresh SYSTEM cache:" + error);
+      logger.ERROR(`Failed to refresh SYSTEM cache: ${error.message}`);
+      throw error; // Propagate the error for handling in the caller
     }
   }
 
-  // Method to manually refresh the cache
+  /**
+   * Manually refresh the cache and send a response.
+   * @param {object} req - The request object.
+   * @param {object} res - The response object.
+   */
   static async hardRefresh(req, res) {
     const logger = new LOGGER();
     logger.INFO("Received request to manually refresh the SYSTEM cache.");
+
     try {
       await SYSTEM.refreshCache();
       logger.INFO("Cache manually refreshed successfully.");
@@ -108,9 +131,7 @@ class SYSTEM extends LOGGER {
         lastUpdated: SYSTEM.lastUpdated,
       });
     } catch (error) {
-      logger.ERROR(
-        "Error occurred while manually refreshing the cache:" + error
-      );
+      logger.ERROR(`Error occurred while manually refreshing the cache: ${error.message}`);
       res.status(500).json({
         serverResponseCode: 500,
         responseDescription: "Failed to refresh cache",

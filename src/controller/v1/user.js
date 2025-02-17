@@ -7,7 +7,7 @@ class UserController extends LOGGER {
   static QUERIES = {
     CREATE: `INSERT INTO users (user_id, first_name, middle_name, last_name, email, phone, gender, dob, country_code, state_code, city_name, role_id, is_allowed, password) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
     READ: `SELECT * FROM users WHERE user_id = $1`,
-    UPDATE: `UPDATE users SET first_name = $1,  middle_name = $2, last_name = $3, email = $4,  phone = $5,  gender = $6,  dob = $7, country_code = $8, state_code = $9,  city_name = $10,  role_id = $11, is_allowed = $12 WHERE user_id = $13 RETURNING *`,
+    UPDATE: `UPDATE users SET first_name = $1, middle_name = $2, last_name = $3, email = $4, phone = $5, gender = $6, dob = $7, country_code = $8, state_code = $9, city_name = $10, role_id = $11, is_allowed = $12 WHERE user_id = $13 RETURNING *`,
     DELETE: `DELETE FROM users WHERE user_id = $1`,
     UPDATE_PASSWORD: `UPDATE users SET password = $1 WHERE user_id = $2`,
     READ_USER_ID: `SELECT user_id FROM users WHERE user_id = $1`,
@@ -19,8 +19,18 @@ class UserController extends LOGGER {
     this.DB = DATABASE.CONNECTION;
   }
 
+  /**
+   * Hash a password using bcrypt.
+   * @param {string} password - The password to hash.
+   * @returns {Promise<string>} - The hashed password.
+   */
   hashPassword = async (password) => bcrypt.hash(password, 10);
 
+  /**
+   * Generate a one-time password.
+   * @param {number} length - The length of the password.
+   * @returns {string} - The generated password.
+   */
   generateOneTimePassword = (length = 8) => {
     const charset =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+{}|:<>?-=[];,./";
@@ -29,22 +39,43 @@ class UserController extends LOGGER {
     ).join("");
   };
 
+  /**
+   * Remove sensitive information (e.g., password) from a user object.
+   * @param {object} user - The user object.
+   * @returns {object} - The sanitized user object.
+   */
   removePassword = (user) => {
-    this.INFO("Removing any secure details");
+    this.INFO("Removing sensitive details from user object");
     delete user.password;
     return user;
   };
 
+  /**
+   * Create a user history record.
+   * @param {string} action - The action performed (e.g., "U" for update).
+   * @param {string} user_id - The user ID.
+   * @returns {Promise<object>} - The result of the query.
+   */
   createUserHistory = async (action, user_id) =>
     this.DB.oneOrNone(UserController.QUERIES.USER_AUDIT, [action, user_id]);
 
+  /**
+   * Send an error response.
+   * @param {object} res - The response object.
+   * @param {Error} error - The error object.
+   */
   sendErrorResp = (res, error) => {
     const ErrorResponse = DATABASE.handleDatabaseError(error);
-    this.ERROR("Error: " + error);
+    this.ERROR(`Error: ${error.message}`);
     this.DEBUG(JSON.stringify(error));
     res.status(ErrorResponse.serverResponseCode).json(ErrorResponse);
   };
 
+  /**
+   * Create a new user.
+   * @param {object} user - The user data.
+   * @returns {Promise<object>} - The created user.
+   */
   createUser = async (user) => {
     const {
       user_id,
@@ -61,45 +92,56 @@ class UserController extends LOGGER {
       role_id,
       is_allowed,
     } = user;
+
     let password = this.generateOneTimePassword();
     this.INFO(
-      "Password Hashing Required " +
-        SYSTEM.PasswordHashingRequired +
-        " on System Level"
+      `Password Hashing Required: ${SYSTEM.PasswordHashingRequired} on System Level`
     );
+
     if (SYSTEM.PasswordHashingRequired) {
       password = await this.hashPassword(password);
     }
-    DATABASE.BEGIN().finally(this.INFO("Transaction Started"));
-    const result = await this.DB.oneOrNone(UserController.QUERIES.CREATE, [
-      user_id,
-      first_name,
-      middle_name,
-      last_name,
-      email,
-      phone,
-      gender,
-      dob,
-      country_code,
-      state_code,
-      city_name,
-      role_id,
-      is_allowed || "Y",
-      password,
-    ])
-      .then((user) => {
-        this.DEBUG(JSON.stringify(result));
-        this.INFO("User created successfully");
-        DATABASE.COMMIT().finally(this.INFO("Transaction Commited"));
-        return user;
-      })
-      .catch((error) => {
-        DATABASE.ROLLBACK().finally(this.INFO("Transaction RollBack"));
-        throw new Error(error);
-      });
-    return result;
+
+    try {
+      DATABASE.BEGIN();
+      this.INFO("Transaction Started");
+
+      const result = await this.DB.oneOrNone(UserController.QUERIES.CREATE, [
+        user_id,
+        first_name,
+        middle_name,
+        last_name,
+        email,
+        phone,
+        gender,
+        dob,
+        country_code,
+        state_code,
+        city_name,
+        role_id,
+        is_allowed || "Y",
+        password,
+      ]);
+
+      this.DEBUG(JSON.stringify(result));
+      this.INFO("User created successfully");
+
+      DATABASE.COMMIT();
+      this.INFO("Transaction Committed");
+
+      return result;
+    } catch (error) {
+      DATABASE.ROLLBACK();
+      this.INFO("Transaction Rolled Back");
+      throw error;
+    }
   };
 
+  /**
+   * Handle the create user API request.
+   * @param {object} req - The request object.
+   * @param {object} res - The response object.
+   */
   createUserApi = async (req, res) => {
     try {
       const result = await this.createUser(req.body.user);
@@ -113,6 +155,11 @@ class UserController extends LOGGER {
     }
   };
 
+  /**
+   * Retrieve a user by ID.
+   * @param {object} req - The request object.
+   * @param {object} res - The response object.
+   */
   getUser = async (req, res) => {
     try {
       const { user_id } = req.params;
@@ -124,9 +171,8 @@ class UserController extends LOGGER {
         });
       }
 
-      this.INFO("Going to retrieve user");
+      this.INFO("Fetching user from the database");
 
-      // Fetch user from the database
       const user = await this.DB.oneOrNone(UserController.QUERIES.READ, [
         user_id,
       ]);
@@ -137,24 +183,27 @@ class UserController extends LOGGER {
           responseDescription: "User not found",
         });
       }
+
       this.INFO("User retrieved successfully");
 
-      // Send successful response
       res.status(200).json({
         serverResponseCode: "200",
         responseDescription: "User retrieved successfully",
         user: SYSTEM.SendPasswordInResp ? user : this.removePassword(user),
       });
     } catch (error) {
-      // Handle any unexpected errors
       this.sendErrorResp(res, error);
     }
   };
 
+  /**
+   * Update a user.
+   * @param {object} req - The request object.
+   * @param {object} res - The response object.
+   */
   updateUser = async (req, res) => {
     const { user_id, ...fields } = req.body.user;
 
-    // Check if user_id is provided
     if (!user_id) {
       this.WARNING("User ID is required");
       return res.status(400).json({
@@ -163,7 +212,6 @@ class UserController extends LOGGER {
       });
     }
 
-    // Collect fields to update
     const fieldsToUpdate = [];
     const values = Object.entries(fields).reduce((acc, [key, value]) => {
       if (value !== undefined) {
@@ -173,10 +221,8 @@ class UserController extends LOGGER {
       return acc;
     }, []);
 
-    // Add user_id to values
     values.push(user_id);
 
-    // Check if there are fields to update
     if (fieldsToUpdate.length === 0) {
       return res.status(400).json({
         serverResponseCode: 400,
@@ -184,21 +230,17 @@ class UserController extends LOGGER {
       });
     }
 
-    // Construct the query
     const QUERY = `UPDATE users SET ${fieldsToUpdate.join(
       ", "
     )} WHERE user_id = $${values.length} RETURNING *`;
 
     try {
-      // Optional: Create user history if required
       if (SYSTEM.CreateUserHistory) {
         await this.createUserHistory("U", user_id);
       }
 
-      // Execute the query
       const result = await this.DB.oneOrNone(QUERY, values);
 
-      // Check for a result and respond
       if (!result) {
         return res.status(404).json({
           serverResponseCode: 404,
@@ -212,15 +254,18 @@ class UserController extends LOGGER {
         user: SYSTEM.SendPasswordInResp ? result : this.removePassword(result),
       });
     } catch (error) {
-      // Handle errors
       this.sendErrorResp(res, error);
     }
   };
 
+  /**
+   * Update a user's password.
+   * @param {object} req - The request object.
+   * @param {object} res - The response object.
+   */
   updatePassword = async (req, res) => {
     const { user_id, newPassword } = req.body;
 
-    // Check for required fields
     if (!user_id || !newPassword) {
       this.WARNING("User ID and new password are required");
       return res.status(400).json({
@@ -236,23 +281,19 @@ class UserController extends LOGGER {
 
       let password = newPassword;
 
-      // Hash the password if required by the system configuration
       if (SYSTEM.PasswordHashingRequired) {
         password = await this.hashPassword(password);
       }
 
-      // Optionally, create user history if the setting is enabled
       if (SYSTEM.CreateUserHistory) {
         await this.createUserHistory("U", user_id);
       }
 
-      // Execute the password update query
       const result = await this.DB.result(
         UserController.QUERIES.UPDATE_PASSWORD,
         [password, user_id]
       );
 
-      // Send response based on the result of the update operation
       res.status(result.rowCount > 0 ? 200 : 404).json({
         serverResponseCode: result.rowCount > 0 ? "200" : "404",
         responseDescription:
@@ -261,11 +302,15 @@ class UserController extends LOGGER {
             : "User not found",
       });
     } catch (error) {
-      // Send error response if an exception occurs
       this.sendErrorResp(res, error);
     }
   };
 
+  /**
+   * Delete a user.
+   * @param {object} req - The request object.
+   * @param {object} res - The response object.
+   */
   deleteUser = async (req, res) => {
     const { user_id } = req.params;
     try {
@@ -281,7 +326,6 @@ class UserController extends LOGGER {
           result.rowCount > 0 ? "User deleted successfully" : "User not found",
       });
     } catch (error) {
-      // Send error response if an exception occurs
       this.sendErrorResp(res, error);
     }
   };
